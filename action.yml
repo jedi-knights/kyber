@@ -1,4 +1,4 @@
-name: kyber
+name: jk-kyber
 description: Function-level Go code quality metrics — cyclomatic complexity, testability, readability.
 author: Jedi Knights
 
