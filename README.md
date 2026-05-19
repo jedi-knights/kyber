@@ -550,15 +550,52 @@ After installing, start a new shell (or `source` the file you wrote) and verify 
 
 ## GitHub Action
 
+Add kyber to any workflow with a single step — no separate install required. The action downloads the correct binary for the runner at runtime.
+
+### Minimal usage
+
 ```yaml
 - uses: jedi-knights/kyber@v1
   with:
-    paths: "./..."
-    format: sarif
     fail-on-threshold: "true"
 ```
 
-When `format: sarif`, the action uploads the report to the GitHub code-scanning view automatically.
+### SARIF upload (GitHub code scanning)
+
+When `format: sarif`, the action writes a `kyber.sarif` file and uploads it to GitHub code scanning automatically. The results appear in the **Security → Code scanning** tab of your repository.
+
+```yaml
+name: Code quality
+
+on: [push, pull_request]
+
+jobs:
+  kyber:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write   # required for SARIF upload
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jedi-knights/kyber@v1
+        with:
+          format: sarif
+          fail-on-threshold: "true"
+```
+
+Set `upload-sarif: "false"` to produce the SARIF file without uploading it (useful when you want to combine multiple SARIF results before uploading).
+
+### All inputs
+
+| Input | Default | Description |
+|---|---|---|
+| `paths` | `./...` | Space-separated paths to analyze. Follows Go's `./...` recursion convention. |
+| `config` | `kyber.toml` | Path to a `kyber.toml` config file. Silently ignored when the file does not exist. |
+| `format` | `text` | Output format: `text`, `json`, or `sarif`. |
+| `output` | *(stdout)* | Write the report to a file instead of stdout. |
+| `fail-on-threshold` | `false` | Exit non-zero when any function exceeds a metric threshold. Enable in CI to gate merges. |
+| `include-tests` | `false` | Include `*_test.go` files in the analysis. |
+| `verbose` | `false` | Emit per-file progress output during the walk. |
+| `upload-sarif` | `true` | Upload the SARIF report to GitHub code scanning. Only active when `format: sarif`. |
 
 ## Development
 
