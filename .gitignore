@@ -1,0 +1,27 @@
+# Binaries
+/kyber
+/kyber.exe
+dist/
+
+# Coverage output (generated)
+coverage/
+coverage.out
+
+# Go build cache
+*.test
+*.out
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# kyber config (users create their own)
+# kyber.toml is intentionally NOT ignored — projects may commit their own
+
+# Task tracking (per-session, not for the repo)
+TODO.md

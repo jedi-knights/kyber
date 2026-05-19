@@ -1,0 +1,111 @@
+name: kyber
+description: Function-level Go code quality metrics — cyclomatic complexity, testability, readability.
+author: Jedi Knights
+
+branding:
+  icon: bar-chart-2
+  color: purple
+
+inputs:
+  paths:
+    description: Space-separated paths to analyze (default ./...)
+    required: false
+    default: "./..."
+  config:
+    description: Path to kyber.toml
+    required: false
+    default: kyber.toml
+  format:
+    description: Output format (text, json, sarif)
+    required: false
+    default: text
+  output:
+    description: Write report to file (default stdout)
+    required: false
+    default: ""
+  fail-on-threshold:
+    description: Exit non-zero if any function exceeds a metric threshold
+    required: false
+    default: "false"
+  include-tests:
+    description: Include *_test.go files in analysis
+    required: false
+    default: "false"
+  verbose:
+    description: Enable verbose output
+    required: false
+    default: "false"
+  upload-sarif:
+    description: Upload the SARIF report to GitHub code scanning (only when format=sarif)
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Download kyber
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+        ARCH="$(uname -m)"
+        case "$ARCH" in
+          x86_64)          ARCH="amd64" ;;
+          aarch64 | arm64) ARCH="arm64" ;;
+          *) echo "Unsupported architecture: $ARCH" >&2; exit 1 ;;
+        esac
+
+        # Resolve the version to install:
+        #   1. Use the action's own ref when it is a full semver tag (v1.2.3).
+        #   2. Otherwise fall back to the latest release from the GitHub API.
+        VERSION="${GITHUB_ACTION_REF:-}"
+        if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          VERSION="$(curl -fsSL https://api.github.com/repos/jedi-knights/kyber/releases/latest \
+            | grep '"tag_name"' | cut -d'"' -f4)"
+        fi
+
+        if [ -z "$VERSION" ]; then
+          echo "::error::Failed to resolve kyber version" >&2
+          exit 1
+        fi
+
+        VER="${VERSION#v}"
+        ARCHIVE="kyber_${VER}_${OS}_${ARCH}.tar.gz"
+        URL="https://github.com/jedi-knights/kyber/releases/download/${VERSION}/${ARCHIVE}"
+
+        echo "Downloading kyber ${VERSION} (${OS}/${ARCH})"
+        curl -fsSL "$URL" | tar -xz -C "$RUNNER_TEMP" kyber
+        echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+    - name: Run kyber
+      id: run
+      shell: bash
+      env:
+        KYBER_VERBOSE: ${{ inputs.verbose }}
+      run: |
+        set -euo pipefail
+        ARGS=(analyze)
+        [ -n "${{ inputs.config }}" ] && [ -f "${{ inputs.config }}" ] && ARGS+=(--config "${{ inputs.config }}")
+        ARGS+=(--format "${{ inputs.format }}")
+        [ -n "${{ inputs.output }}" ] && ARGS+=(--output "${{ inputs.output }}")
+        [ "${{ inputs.fail-on-threshold }}" = "true" ] && ARGS+=(--fail-on-threshold)
+        [ "${{ inputs.include-tests }}" = "true" ] && ARGS+=(--include-tests)
+        for p in ${{ inputs.paths }}; do ARGS+=("$p"); done
+
+        # If sarif is requested without an explicit output, capture to a file so
+        # the upload step can find it.
+        if [ "${{ inputs.format }}" = "sarif" ] && [ -z "${{ inputs.output }}" ]; then
+          ARGS+=(--output kyber.sarif)
+          echo "sarif_path=kyber.sarif" >> "$GITHUB_OUTPUT"
+        elif [ "${{ inputs.format }}" = "sarif" ]; then
+          echo "sarif_path=${{ inputs.output }}" >> "$GITHUB_OUTPUT"
+        fi
+
+        kyber "${ARGS[@]}"
+
+    - name: Upload SARIF to GitHub code scanning
+      if: ${{ inputs.format == 'sarif' && inputs.upload-sarif == 'true' }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ steps.run.outputs.sarif_path }}

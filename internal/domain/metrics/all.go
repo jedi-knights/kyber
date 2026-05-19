@@ -1,0 +1,14 @@
+package metrics
+
+import "github.com/jedi-knights/kyber/internal/domain"
+
+// DefaultRegistry returns a Registry pre-populated with every metric shipped
+// with kyber. Adding a new metric means: implement domain.Metric, register
+// here, write tests. Nothing else changes.
+func DefaultRegistry() *domain.Registry {
+	r := domain.NewRegistry()
+	r.MustRegister(NewCyclomatic())
+	r.MustRegister(NewReadability())
+	r.MustRegister(NewTestability())
+	return r
+}

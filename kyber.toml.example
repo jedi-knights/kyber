@@ -1,0 +1,48 @@
+# kyber.toml — function-level Go code metrics
+# Copy to kyber.toml and adjust to your project.
+
+# Paths to analyze. Same semantics as the analyze command's positional args.
+# Use Go's ./... convention to recurse.
+paths = ["./..."]
+
+# Glob patterns to exclude. Matched against each file's path.
+exclude = ["vendor/**", "testdata/**", "**/*_test.go"]
+
+# Output format: "text" | "json" | "sarif"
+format = "text"
+
+# When any function exceeds its metric's threshold, exit non-zero.
+# Useful as a CI gate.
+fail_on_threshold = false
+
+# Enable verbose progress output.
+verbose = false
+
+# ----- Metric configuration -----------------------------------------------
+# Each [metrics.<id>] table configures one metric. Setting enabled = false
+# disables it entirely. Setting a threshold overrides the metric's default.
+
+[metrics.cyclomatic]
+enabled   = true
+threshold = 7        # flag functions with complexity > 7
+
+[metrics.testability]
+enabled   = true
+threshold = 0.6      # flag functions whose score < 0.6
+max_params = 5
+max_lines  = 40
+# Weights for the four signals (sum need not equal 1; they are normalized).
+weight_params       = 1.0
+weight_side_effects = 1.0
+weight_interfaces   = 1.0
+weight_length       = 1.0
+
+[metrics.readability]
+enabled    = true
+threshold  = 0.6
+max_lines   = 40
+max_nesting = 4
+weight_length   = 1.0
+weight_nesting  = 1.0
+weight_idents   = 1.0
+weight_comments = 1.0
